@@ -1,0 +1,86 @@
+library(raux)
+library(haven)
+
+setwd("R:/EDP/!PROJECTS/081.103.00060.1 LADA TAPI/5_ANALYSIS/1_N&G")
+
+data <- read_sav("R:/EDP/!PROJECTS/081.103.00060.1 LADA TAPI/2_RESULTS/02_cleaning/081.103.00060.1_cleaned.zsav") %>%
+  select(Respondent_Serial, Q10_1, matches("F11|F12|Q17_1|Q17_2")) 
+
+
+########################################################################### F11 and F12
+
+df_base_f11 <- data %>% select(- matches("Q17")) %>%
+  filter(Q10_1 %in% 1:3) %>%
+  mutate_at(vars(matches("F11|F12")), funs(ifelse(. == 99, NA, .))) %>%
+  na.omit() %>%
+  mutate_at(vars(matches("F12")), funs(ifelse(. %in% 4:5, 1, 0)))
+
+
+df_f11 <- df_base_f11 %>%  
+  gather(var, value, matches("F11|F12")) %>%
+  separate(var, into = c("var", "st")) %>%
+  spread(var, value) %>%
+  mutate_if(is.character, as.numeric) %>%
+  group_by(Respondent_Serial) %>%
+  arrange(st) %>%
+  ungroup() %>%
+  group_by(Q10_1, st) %>%
+  summarise_at(vars(matches("F")), funs(sum)) %>%
+  ungroup()
+ 
+ng = list()
+
+st_f11 = read.xlsx("label.xlsx", "F11")
+Q10 <- sprintf("F11 (Q10_1=%s)", 1:3)
+ 
+for(i in 1:3){
+  base <- nrow(df_base_f11 %>% filter(Q10_1 == i))
+  
+  ng[[Q10[i]]] <- df_f11 %>% filter(Q10_1 == i) %>%
+    mutate(Importance_F11 = F11/base *100, Satisfaction_F12 = F12/base *100) %>%
+    select(matches("_F")) %>%
+    rbind(c(base, base),.) %>%
+    as.data.frame()
+  
+  row.names(ng[[i]]) = c("Base", st_f11$label)
+}  
+
+
+#########################################################################  Q17 
+
+##### All respondents with NA are left with 0. They are not excluded from the base
+
+
+st_q17 <- read.xlsx("label.xlsx", "Q17")
+  
+df_q17 <- data %>% select(-matches("Q10|F11|F12")) %>%
+  mutate_at(vars(matches("Q17_1")), funs(ifelse(. == 99, NA, .))) %>%
+  # na.omit() %>%
+  mutate_at(vars(matches("Q17_2")), funs(ifelse(. %in% 4:5, 1, 0)))
+
+base <- nrow(df_q17)
+
+base <- 1563
+
+ng[["Q17"]] <- df_q17 %>%
+  renvar("Q17_(\\d+)_(\\d+)", "Q17_\\1-\\2") %>%
+  gather(var, value, matches("Q17")) %>%
+  filter(!is.na(value)) %>%
+  separate(var, into = c("var", "st"), sep = "-") %>%
+  spread(var, value) %>%
+  mutate_if(is.character, as.numeric) %>%
+  group_by(Respondent_Serial) %>%
+  arrange(st) %>%
+  ungroup() %>%
+  group_by(st) %>%
+  mutate(Q17_1 = ifelse(is.na(Q17_1), 0, Q17_1)) %>%
+  summarise_at(vars(matches("Q17")), funs(sum)) %>%
+  ungroup() %>%
+  mutate(Importance_Q17 = Q17_1/base *100, Satisfaction_Q17 = Q17_2/base *100) %>%
+  select(matches("_Q17")) %>%
+  rbind(c(base, base),.) %>%
+  as.data.frame()
+
+row.names(ng[["Q17"]]) = c("Base", st_q17$label)
+
+write_xlsx(ng, "081_103_00060_1_ng_top2_new_check.xlsx", startRow = 4, rowNames = T)

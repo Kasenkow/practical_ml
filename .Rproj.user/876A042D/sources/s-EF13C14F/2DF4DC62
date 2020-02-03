@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1580729883154.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "2DF4DC62",
+    "lastKnownWriteTime" : 1580738345,
+    "last_content_update" : 1580738345883,
+    "path" : "C:/r/coursera/practical_machine_learning/har_wle_kasenkov.Rmd",
+    "project_path" : "har_wle_kasenkov.Rmd",
+    "properties" : {
+        "cursorPosition" : "38,41",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

@@ -1,0 +1,406 @@
+pacman::p_load(tidyverse, caret, kernlab) # kernlab is for the dataset "spam"
+
+?preProcess
+?createDataPartition
+?createResample
+?createTimeSlices
+
+?train
+?predict
+
+?confusionMatrix
+?createFolds
+
+# Example
+data(spam)
+# he forgot to set the seed here
+set.seed(8)
+inTrain <- createDataPartition(y = spam$type, p = 0.75, list = FALSE)
+training <- spam[inTrain, ]
+testing <- spam[-inTrain, ]
+dim(training)
+
+set.seed(32343)
+modelFit <- train(type ~ ., data = training, method = "glm")
+modelFit
+
+modelFit$finalModel
+predictions <- predict(modelFit, newdata = testing)
+predictions
+
+confusionMatrix(predictions, testing$type)
+
+set.seed(32323)
+folds <- createFolds(y = spam$type, k = 10, list = TRUE, returnTrain = TRUE)
+sapply(folds, length)
+folds[[1]][1:10]
+
+# when using X and y from different objects, e.g. X are from PCA output, use the following syntax
+# instead of formula:
+# modelFit <- train(x = trainPC, y = training$type,method="glm")
+
+set.seed(32323)
+folds <- createFolds(y = spam$type, k = 10, list = TRUE, returnTrain = FALSE)
+
+tme <- 1:1000
+createTimeSlices(y = tme, initialWindow = 20, horizon = 10)
+
+args(caret:::train.default)
+# weights can be used for unbalanced classes
+
+library(ISLR)
+data(Wage)
+str(Wage)
+set.seed(32323)
+inTrain <- createDataPartition(y = Wage$wage, p = 0.7, list = FALSE)
+training <- Wage[inTrain, ]
+testing <- Wage[-inTrain, ]
+featurePlot(x = training[ ,  c("age", "education", "jobclass")], y = training$wage, plot = "pairs")
+qplot(age, wage, data = training)
+qplot(age, wage, colour = jobclass, data = training)
+qplot(age, wage, colour = education, data = training)+
+        geom_smooth(method = lm)
+
+library(Hmisc) # for factor creation
+cutWage <- cut2(training$wage, g = 3) # g is for the number of groups
+table(cutWage)
+
+qplot(cutWage, age, data = training, fill = cutWage, geom = "boxplot")
+qplot(cutWage, age, data = training, fill = cutWage, geom = c("boxplot", "jitter"))
+
+table(cutWage, training$jobclass)
+prop.table(table(cutWage, training$jobclass), 1)
+
+qplot(wage, colour = education, data = training, geom = "density")
+# standartization of the test dataset should be done based on the training values:
+test_stand_feature <- (test_feature - mean(train_feature)) / sd(train_feature)
+
+
+pre0bj <- preProcess(training[ , -ncol(training)], method = c("center", "scale"))
+dummies <- dummyVars(wage ~ jobclass, data = training)
+head(predict(dummies, newdata = training))
+
+# removing zero covariates:
+nearZeroVar(training, saveMetrics = TRUE)
+
+# spline basis
+library(splines)
+bsBasis <- bs(training$age, df = 3) # df is a degree of polynomial
+bsBasis
+
+lm1 <- lm(wage ~ bsBasis, data = training)
+plot(training$age, training$wage, pch = 19, cex = 0.5)
+points(training$age, predict(lm1, newdata = training), col = "red", pch = 19, cex = 0.5)
+predict(bsBasis, age = testing$age)
+
+# inTrain0 <- createDataPartition(y=spam$type,
+#                                p=0.75, list=FALSE)
+# inTrain1 <- createDataPartition(y=spam$type,
+#                                p=0.75, list=FALSE)
+# all.equal(inTrain0, inTrain1)
+set.seed(8)
+inTrain <- createDataPartition(y = spam$type, p = 0.75, list = FALSE)
+training <- spam[inTrain, ]
+testing <- spam[-inTrain, ]
+M <- abs(cor(training[, -58]))
+diag(M) <- 0
+which(M > 0.8, arr.ind = TRUE)
+
+set.seed(100)
+inTrain <- createDataPartition(y=spam$type,
+                               p=0.75, list=FALSE)
+training <- spam[inTrain,]
+testing <- spam[-inTrain,]
+
+M <- abs(cor(training[,-58]))
+diag(M) <- 0
+which(M > 0.8,arr.ind=T)
+
+# difference between PCA and SVD is that PCA scales prior to SVD.
+# prior to PCA, we can check outliers
+# outliers can be "removed" with log/ boxcox transformations
+
+preProc <- preProcess(log10(spam[ , -58] + 1), method = "pca", pcaComp = 2)
+spamPC <- predict(preProc, log10(spam[ , -58] + 1))
+plot(spamPC[,1],spamPC[,2],col=typeColor)
+modelFit <- train(training$type ~ ., method = "glm", preProcess = "pca", data = training)
+confusionMatrix(testing$type, predict(modelFit,testing))
+
+# test
+library(AppliedPredictiveModeling)
+data(AlzheimerDisease)
+adData = data.frame(diagnosis, predictors)
+testIndex = createDataPartition(diagnosis, p = 0.50, list = FALSE)
+training = adData[-testIndex, ]
+testing = adData[testIndex, ]
+
+data(concrete)
+set.seed(1000)
+inTrain = createDataPartition(mixtures$CompressiveStrength, p = 3/4)[[1]]
+training = mixtures[inTrain,]
+testing = mixtures[-inTrain,]
+nrow(training)
+nrow(testing)
+head(training)
+
+ggplot(data.frame(x = inTrain, y = training$CompressiveStrength),
+        aes(x = x, y = y))+
+        geom_point()
+
+m_df <-
+        training %>%
+        mutate(x = inTrain, y = CompressiveStrength) %>%
+        mutate_at(vars(-c("x", "y")), ~cut2(.))
+
+names(m_df)
+ggplot(m_df, aes(x = x, y = y, color = FlyAsh))+
+        geom_point()
+ggplot(m_df, aes(x = x, y = y, color = Age))+
+        geom_point()
+
+set.seed(1000)
+inTrain = createDataPartition(mixtures$CompressiveStrength, p = 3/4)[[1]]
+training = mixtures[ inTrain,]
+testing = mixtures[-inTrain,]
+
+hist(training$Superplasticizer)
+
+set.seed(3433)
+data(AlzheimerDisease)
+adData = data.frame(diagnosis,predictors)
+inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
+training = adData[ inTrain,]
+testing = adData[-inTrain,]
+
+training %>% select(starts_with("IL")) %>% head
+preProcess(training %>% select(starts_with("IL")), method = "pca", thresh = 0.8)
+
+set.seed(3433)
+data(AlzheimerDisease)
+adData = data.frame(diagnosis,predictors)
+inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
+training = adData[ inTrain,]
+testing = adData[-inTrain,]
+
+training <- training %>% select(diagnosis, starts_with("IL"))
+mdl_1 <- train(diagnosis ~ ., method = "glm", data = training)
+
+preProc <- preProcess(training[-1], method = "pca", thresh = 0.8)
+mdl_2 <- train(y = training$diagnosis, x = predict(preProc, newdata = training[-1]), method = "glm")
+
+mdl_1
+mdl_2
+
+# we can color results by variables not used in the model. residuals vs fitted.
+# Some outliers maybe explained by other variables
+# plot residuals against indices (perhaphs there is a relationship and this may
+# be suggestive of missing variable)
+
+# RF:
+# 1. BS samples
+# 2. BS vars
+# 3. tree vote
+library(randomForest)
+inTrain <- createDataPartition(y=iris$Species,
+                               p=0.7, list=FALSE)
+training <- iris[inTrain,]
+testing <- iris[-inTrain,]
+
+modFit <- train(Species~ .,data=training,method="rf",prox=TRUE)
+modFit
+getTree(modFit$finalModel,k=2)
+
+irisP <- classCenter(training[,c(3,4)], training$Species, modFit$finalModel$prox)
+irisP <- as.data.frame(irisP); irisP$Species <- rownames(irisP)
+p <- qplot(Petal.Width, Petal.Length, col=Species,data=training)
+p + geom_point(aes(x=Petal.Width,y=Petal.Length,col=Species),size=5,shape=4,data=irisP)
+
+pred <- predict(modFit,testing); testing$predRight <- pred==testing$Species
+table(pred,testing$Species)
+qplot(Petal.Width,Petal.Length,colour=predRight,data=testing,main="newdata Predictions")
+
+# Boosting:
+# 1. take lots of (possibly) weak predictors
+# 2. weight and add them up
+# 3. get a stronger predictor
+
+library(caret)
+library(pgmm)
+library(rpart)
+library(AppliedPredictiveModeling)
+library(dplyr)
+data(segmentationOriginal)
+
+df <- as_tibble(segmentationOriginal)
+df
+# this doesnt work
+# training <- df %>% filter(Case == "Train")
+# testing <- df %>% filter(Case == "Test")
+
+training <- df %>% filter(Case == "Train") %>% select(-Case)
+testing <- df %>% filter(Case == "Test") %>% select(-Case)
+
+set.seed(125)
+fit_0 <- train(Class ~., method = "rpart", data = training)
+fit_0$finalModel %>% plot
+library(rattle)
+fancyRpartPlot(fit_0$finalModel)
+n_df <- training %>% slice(1)
+
+n_df$FiberWidthCh1 <- 8
+n_df$VarIntenCh4 <- 100
+n_df$PerimStatusCh1 <- 2L
+predict(fit_0$finalModel, newdata = n_df, type = "class")
+predict(fit_0$finalModel, newdata = testing, type = "class")
+
+# This wont work because there are no several variables that were in the training df:
+# TotalIntenCh2 <- c(23000,50000,57000,NA)
+# FiberWidthCh1 <- c(10,10,8,8)
+# VarIntenCh4 <- c(NA,100,100,100)
+# PerimStatusCh1 <- c(2,NA,NA,2)
+# theTestData <- data.frame(TotalIntenCh2,
+#                           FiberWidthCh1,
+#                           VarIntenCh4,
+#                           PerimStatusCh1)
+# predict(fit_0,theTestData)
+fit_0$coefnames
+theTestData <- training
+
+data(olive)
+olive = olive[,-1]
+
+set.seed(125)
+inTrain <- createDataPartition(olive$Area, p = 0.6, list = FALSE)
+training <- olive[inTrain, ]
+testing <- olive[-inTrain, ]
+set.seed(125)
+fit_1 <- train(Area ~., method = "rpart", data = training)
+# warnings issued. have to check them:
+table(training$Area)
+table(olive$Area)
+fit_1$finalModel
+fancyRpartPlot(fit_1$finalModel)
+predict(fit_1, newdata = as.data.frame(t(colMeans(olive))))
+
+library(quantmod)
+# library(ElemStatLearn)
+# data(SAheart)
+load("../Downloads/ElemStatLearn/data/SAheart.RData")
+SAheart %>% head # have to change outcome to factor
+SAheart$chd <- factor(SAheart$chd)
+set.seed(8484)
+train = sample(1:dim(SAheart)[1], size = dim(SAheart)[1]/2, replace = F)
+trainSA = SAheart[train,]
+testSA = SAheart[-train,]
+set.seed(13234)
+fit_2 <- train(chd ~ age + alcohol + obesity + tobacco + typea + ldl,
+               method = "glm",
+               family = "binomial",
+               data = trainSA)
+fit_2$finalModel$family
+missClass = function(values,prediction){sum(((prediction > 0.5)*1) != values)/length(values)}
+missClass(trainSA$chd, predict(fit_2, trainSA))
+missClass(testSA$chd, predict(fit_2, testSA))
+
+load("../Downloads/ElemStatLearn/data/vowel.test.RData")
+load("../Downloads/ElemStatLearn/data/vowel.train.RData")
+vowel.train$y <- factor(vowel.train$y)
+vowel.test$y <- factor(vowel.test$y)
+set.seed(33833)
+fit_3 <- train(y ~., method = "rf", data = vowel.train)
+varImp(fit_3)
+
+library(lubridate)
+library(forecast)
+library(e1071)
+
+vowel.train$y <- factor(vowel.train$y)
+vowel.test$y <- factor(vowel.test$y)
+set.seed(33833)
+fit1 <- train(y ~., method = "rf", data = vowel.train)
+fit2 <- train(y ~., method = "gbm", data = vowel.train)
+pred1 <- predict(fit1, newdata = vowel.test)
+pred2 <- predict(fit2, newdata = vowel.test)
+prop.table(table(pred1 == vowel.test$y))
+confusionMatrix(pred1, vowel.test$y)
+prop.table(table(pred2 == vowel.test$y))
+confusionMatrix(pred2, vowel.test$y)
+prop.table(table(pred1 == pred2))
+# rf = 0.6082; gbm = 0.5152;AA = 0.6361
+library(gbm)
+set.seed(3433)
+library(AppliedPredictiveModeling)
+data(AlzheimerDisease)
+adData = data.frame(diagnosis,predictors)
+inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
+training = adData[ inTrain,]
+testing = adData[-inTrain,]
+
+set.seed(62433)
+md1 <- train(diagnosis ~., method = "rf", data = training)
+md2 <- train(diagnosis ~., method = "gbm", data = training)
+md3 <- train(diagnosis ~., method = "lda", data = training)
+
+m_df <-
+        bind_cols(
+                rf = predict(md1, newdata = training),
+                gbm = predict(md2, newdata = training),
+                lda = predict(md3, newdata = training),
+                y = training$diagnosis
+        )
+set.seed(62433)
+md_main <- train(y ~., method = "rf", data = m_df)
+pred_df <-
+        bind_cols(
+                rf = predict(md1, newdata = testing),
+                gbm = predict(md2, newdata = testing),
+                lda = predict(md3, newdata = testing),
+        )
+
+md_main = predict(md_main, newdata = pred_df)
+pred_df$y = testing$diagnosis
+pred_df$md_main <- md_main
+
+confusionMatrix(pred_df$y, pred_df$rf)
+confusionMatrix(pred_df$y, pred_df$gbm)
+confusionMatrix(pred_df$y, pred_df$lda)
+confusionMatrix(pred_df$y, pred_df$md_main) 
+
+set.seed(3523)
+library(AppliedPredictiveModeling)
+data(concrete)
+inTrain = createDataPartition(concrete$CompressiveStrength, p = 3/4)[[1]]
+training = concrete[ inTrain,]
+testing = concrete[-inTrain,]
+
+set.seed(233)
+fit <- train(CompressiveStrength ~., method = "lasso", data = training)
+plot.enet(fit$finalModel, xvar = "L1norm")
+
+
+url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/gaData.csv"
+download.file(url, "../../../r/coursera/practical_machine_learning/quiz4.csv")
+df <- read.csv("../../../r/coursera/practical_machine_learning/quiz4.csv")
+training = df[year(df$date) < 2012,]
+testing = df[(year(df$date)) > 2011,]
+tstrain = ts(training$visitsTumblr)
+
+library(forecast)
+ts_m <- bats(tstrain)
+fcast <- forecast(ts_m, h = length(testing$visitsTumblr), level = 95)
+accuracy(fcast, testing$visitsTumblr)
+prop.table(table(testing$visitsTumblr >= fcast$lower & testing$visitsTumblr <= fcast$upper))
+
+
+set.seed(352)
+library(AppliedPredictiveModeling)
+data(concrete)
+inTrain = createDataPartition(concrete$CompressiveStrength, p = 3/4)[[1]]
+training = concrete[ inTrain,]
+testing = concrete[-inTrain,]    
+set.seed(325)
+fit <- svm(CompressiveStrength ~., data = training)
+prd <- predict(fit, newdata = testing)
+sqrt(sum((prd - testing$CompressiveStrength)^2))
+
+

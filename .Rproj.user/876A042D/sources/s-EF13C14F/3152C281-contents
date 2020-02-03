@@ -1,0 +1,73 @@
+pacman::p_load(tidyverse, caret, doParallel)
+select <- dplyr::select
+
+# function to remove almost empty variables (containing > threshold NAs):
+remalmempty <- function(df, threshold = 0.9) {
+        naprop = sapply(df, function(x) round(sum(is.na(x)) / length(x), 2))
+        return(df[naprop < threshold])
+}
+
+url_train = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+url_test = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(url_train, "data/train_test.csv")
+download.file(url_test, "data/test.csv")
+
+train_df <-
+        read_csv("data/train_test.csv",
+                 na = c("#DIV/0!", "NA", "", " ")) %>%
+        remalmempty %>%
+        mutate_at("classe", ~factor(.)) %>% 
+        select(-(1:7))
+
+test_df <-
+        read_csv("data/test.csv") %>%
+        remalmempty %>%
+        select(-(1:7))
+
+# test and train split:
+set.seed(2020)
+inTrain <- createDataPartition(train_df$classe, p = 0.75, list = FALSE)
+training <- train_df[inTrain, ]
+testing <- train_df[-inTrain, ]
+
+# exploration:
+sapply(training[-ncol(training)], sd) # need scaling
+table(training$classe) # classes' balance
+ggplot(training, aes())
+
+
+# feature selection:
+# 1. low variance:
+# tmp <- sapply(train_df, function(x) length(unique(x)))
+
+# 2. relaimpo and genizi decomposition:
+cl <- makePSOCKcluster(5)
+registerDoParallel(cl)
+
+# modelling:
+# https://topepo.github.io/caret/parallel-processing.html
+
+# Creating object for Accuracy training:
+set.seed(2020)
+objControl <-
+        trainControl(method = "repeatedcv",
+                     number = 10,
+                     repeats = 5)
+rf_mdl <-
+        train(classe ~ .,
+              data = training,
+              trainControl = objControl,
+              method = "rf",
+              preProcess = c("center", "scale"))
+
+# rf_mdl %>% write_rds("out/rf_model.bz2", compress = "bz")
+
+confusionMatrix(predict(rf_mdl, newdata = testing), testing$classe)$table
+# I am happy with this result
+stopCluster(cl)
+
+# Expected out of sample error:
+confusionMatrix(predict(rf_mdl, newdata = testing), testing$classe)$overal[c(1, 3, 4)]
+
+# actual prediction:
+tibble(id = 1:nrow(test_df), prediction = predict(rf_mdl, newdata = test_df))
